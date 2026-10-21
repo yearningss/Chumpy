@@ -89,7 +89,6 @@ fun WelcomeScreen(
     // The file door: whatever the picker hands over rides the import as if pasted —
     // a WireGuard conf, a share link, a raw config, all the same parsers.
     val context = LocalContext.current
-    val importReadFailed = stringResource(R.string.import_read_failed)
     val filePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
@@ -97,11 +96,11 @@ fun WelcomeScreen(
         scope.launch {
             val text = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openInputStream(uri)?.use { slop.miho.chumpy.data.ImportedFile.readText(it) }
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
                 }.getOrNull()
             }
             if (text == null) {
-                reportError(importReadFailed)
+                reportError(context.getString(R.string.import_read_failed))
             } else {
                 onImport(text) { error -> reportError(error) }
             }

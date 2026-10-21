@@ -117,10 +117,6 @@ android {
         buildConfig = true
     }
 
-    testOptions {
-        unitTests.isIncludeAndroidResources = true
-    }
-
     // The debug build runs on the phone in hand — its 32-bit split is a wasted copy of
     // the core: the splits above hand it the 64-bit file only when its invocation carries
     // no release task (see there).
@@ -181,5 +177,4 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)
-    testImplementation(libs.robolectric)
 }

@@ -942,7 +942,7 @@ private fun AddSubscriptionRow(
         scope.launch {
             val text = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openInputStream(uri)?.use { slop.miho.chumpy.data.ImportedFile.readText(it) }
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
                 }.getOrNull()
             }
             if (text == null) {

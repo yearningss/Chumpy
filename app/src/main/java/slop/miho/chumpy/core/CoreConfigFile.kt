@@ -1,7 +1,6 @@
 package slop.miho.chumpy.core
 
 import android.content.Context
-import slop.miho.chumpy.data.AtomicSnapshot
 import slop.miho.chumpy.ui.components.splitLeadingFlag
 import slop.miho.chumpy.ui.components.splitLeadingPrideFlag
 import java.io.File
@@ -23,27 +22,25 @@ object CoreConfigFile {
 
     /** The last config the UI rendered, or null when there is nothing to connect with. */
     fun readConfig(context: Context): String? {
-        return readAtomic(File(dir(context), CONFIG))
+        val file = File(dir(context), CONFIG)
+        return if (file.isFile) file.readText() else null
     }
 
     /** The connected profile's display name, for the notification and the tile. */
     fun readProfileName(context: Context): String? {
-        return readAtomic(File(dir(context), PROFILE))?.trim()?.takeIf { it.isNotEmpty() }
+        val file = File(dir(context), PROFILE)
+        return if (file.isFile) file.readText().trim().takeIf { it.isNotEmpty() } else null
     }
 
     /** The connected profile's subscription name — the hop the notification tells
      *  before the region. Null for manual profiles: no subscription to name. */
     fun readSubscriptionName(context: Context): String? {
-        return readAtomic(File(dir(context), SUBSCRIPTION))?.trim()?.takeIf { it.isNotEmpty() }
+        val file = File(dir(context), SUBSCRIPTION)
+        return if (file.isFile) file.readText().trim().takeIf { it.isNotEmpty() } else null
     }
 
-    fun has(context: Context): Boolean = !readConfig(context).isNullOrBlank()
+    fun has(context: Context): Boolean = File(dir(context), CONFIG).isFile
 
-    private fun readAtomic(file: File): String? = runCatching {
-        AtomicSnapshot.read(file)
-    }.getOrNull()
-
-    @Synchronized
     fun write(context: Context, configJson: String, profileName: String?, subscriptionName: String?) {
         val directory = dir(context)
         writeAtomic(File(directory, CONFIG), configJson)
@@ -52,7 +49,13 @@ object CoreConfigFile {
     }
 
     private fun writeAtomic(target: File, content: String) {
-        AtomicSnapshot.write(target, content)
+        val tmp = File(target.parentFile, target.name + ".tmp")
+        tmp.writeText(content)
+        if (!tmp.renameTo(target)) {
+            // A same-directory rename only fails on exotic filesystems; fall back in place.
+            target.writeText(content)
+            tmp.delete()
+        }
     }
 }
 

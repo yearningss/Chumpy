@@ -32,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -443,7 +442,6 @@ private fun LossChart(buckets: List<LossBucket>, modifier: Modifier = Modifier) 
 @Composable
 private fun WeekChartCard(week: List<DailyTraffic>, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
-    val locale = LocalConfiguration.current.locales[0]
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = colors.surfaceContainer.withSurfaceOpacity(),
@@ -503,7 +501,7 @@ private fun WeekChartCard(week: List<DailyTraffic>, modifier: Modifier = Modifie
                             rx = day.rx,
                             tx = day.tx,
                             maxTotal = maxTotal,
-                            label = day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, locale),
+                            label = day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
                             modifier = Modifier.weight(1f),
                         )
                     }

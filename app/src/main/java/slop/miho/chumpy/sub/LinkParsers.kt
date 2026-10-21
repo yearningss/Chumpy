@@ -32,11 +32,8 @@ object LinkParsers {
 
     /** Dispatches on the scheme; accepts trimmed lines with surrounding junk spaces. */
     fun parse(link: String): ProfileEntity? {
-        val raw = link.trim()
-        val schemeEnd = raw.indexOf("://")
-        if (schemeEnd <= 0) return null
-        val trimmed = raw.substring(0, schemeEnd).lowercase() + raw.substring(schemeEnd)
-        val parsed = when {
+        val trimmed = link.trim()
+        return when {
             trimmed.startsWith("vmess://", ignoreCase = true) -> parseVmess(trimmed)
             trimmed.startsWith("vless://", ignoreCase = true) -> parseVless(trimmed)
             trimmed.startsWith("trojan://", ignoreCase = true) -> parseTrojan(trimmed)
@@ -49,7 +46,6 @@ object LinkParsers {
                 trimmed.startsWith("wg://", ignoreCase = true) -> parseWireguardUri(trimmed)
             else -> null
         }
-        return parsed?.takeIf { it.server.isNotBlank() && it.serverPort in 1..65535 }
     }
 
     /** A WireGuard .conf file body (the tunnel-migration import path). */
@@ -73,8 +69,7 @@ object LinkParsers {
             }
         }
         val endpoint = peerParams["endpoint"].orEmpty()
-        if (endpoint.isEmpty() || interfaceParams["privatekey"].isNullOrEmpty() ||
-            peerParams["publickey"].isNullOrEmpty()) return null
+        if (endpoint.isEmpty() && interfaceParams["privatekey"].isNullOrEmpty()) return null
         val endpointHost: String
         val endpointPort: Int
         val colon = endpoint.lastIndexOf(':')
@@ -85,7 +80,6 @@ object LinkParsers {
             endpointHost = endpoint
             endpointPort = 0
         }
-        if (endpointHost.isBlank() || endpointPort !in 1..65535) return null
         return draft(ProfileType.WIREGUARD).copy(
             server = endpointHost,
             serverPort = endpointPort,
@@ -108,7 +102,7 @@ object LinkParsers {
         // The modern "standard" vmess URI carries a query string; the classic QR-code form
         // is base64 of a JSON blob. kotlinx.serialization (not org.json) keeps this
         // JVM-testable; lenient because panels' JSON is not always quoted by the book.
-        if (str.substringAfter("vmess://").substringBefore('#').contains('@')) return parseVmessUri(str)
+        if (str.indexOf('?') > 0 && str.indexOf('&') > 0) return parseVmessUri(str)
 
         val json = LinkUtils.decode(str.removePrefix("vmess://"))
         if (json.isEmpty()) return null
@@ -149,6 +143,7 @@ object LinkParsers {
 
     private fun parseVmessUri(str: String): ProfileEntity? {
         val uri = parseUri(str) ?: return null
+        if (uri.rawQuery.isNullOrEmpty()) return null
         val profile = draft(ProfileType.VMESS).copy(
             remarks = fragmentOf(uri),
             server = uri.idnHost,
@@ -163,6 +158,7 @@ object LinkParsers {
 
     private fun parseVless(str: String): ProfileEntity? {
         val uri = parseUri(str) ?: return null
+        if (uri.rawQuery.isNullOrEmpty()) return null
         val profile = draft(ProfileType.VLESS).copy(
             remarks = fragmentOf(uri),
             server = uri.idnHost,
@@ -206,7 +202,6 @@ object LinkParsers {
         } else {
             LinkUtils.decode(userInfo).split(":", limit = 2)
         }
-        if (parts.size != 2 || parts.first().isBlank()) return null
         var profile = draft(ProfileType.SHADOWSOCKS).copy(
             remarks = fragmentOf(uri),
             server = uri.idnHost,
@@ -277,7 +272,7 @@ object LinkParsers {
         val profile = draft(ProfileType.HYSTERIA2).copy(
             remarks = fragmentOf(uri),
             server = uri.idnHost,
-            serverPort = if (uri.port == -1) 443 else uri.port,
+            serverPort = uri.port,
             password = uri.userInfo.orEmpty(),
             security = TLS,
             network = "hysteria",
@@ -285,7 +280,6 @@ object LinkParsers {
         if (uri.rawQuery.isNullOrEmpty()) return profile
         val query = queryParams(uri)
         return applyQueryParams(profile, query).copy(
-            network = "hysteria",
             security = query["security"] ?: TLS,
             obfsPassword = query["obfs-password"].orEmpty(),
             portHopping = query["mport"].orEmpty(),
@@ -343,7 +337,7 @@ object LinkParsers {
         return result
     }
 
-    private fun fragmentOf(uri: URI): String = decodeURIComponent(uri.rawFragment.orEmpty())
+    private fun fragmentOf(uri: URI): String = decodeURIComponent(uri.fragment.orEmpty())
 
     private fun parseUri(str: String): URI? = try {
         URI(fixIllegalUrl(str))

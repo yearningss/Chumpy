@@ -26,6 +26,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -210,7 +211,7 @@ fun WallpaperScreen(
     // The gesture lambda outlives recompositions; the settings it reads on entry must stay
     // current, not the copy from whenever it was composed.
     val liveSettings by rememberUpdatedState(settings)
-    Box(
+    BoxWithConstraints(
         modifier
             .fillMaxSize()
             .pointerInput(wallpaperSelected, page) {

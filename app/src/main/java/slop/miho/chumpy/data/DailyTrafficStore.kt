@@ -21,8 +21,7 @@ object DailyTrafficStore {
 
     /** The last seven days' buckets, oldest first; missing days simply aren't in the list. */
     fun readWeek(context: Context): List<DailyTraffic> {
-        val text = runCatching { AtomicSnapshot.read(cacheFile(context)) }
-            .getOrNull() ?: return emptyList()
+        val text = runCatching { cacheFile(context).readText() }.getOrNull() ?: return emptyList()
         val json = runCatching { JSONObject(text) }.getOrNull() ?: return emptyList()
         if (json.optInt("version") != VERSION) return emptyList()
         val raw = json.optJSONArray("days") ?: return emptyList()
@@ -31,7 +30,7 @@ object DailyTrafficStore {
             for (index in 0 until raw.length()) {
                 val day = raw.optJSONObject(index) ?: continue
                 val bucket = DailyTraffic(day.optLong("day"), day.optLong("rx"), day.optLong("tx"))
-                if (bucket.epochDay in firstDay..(firstDay + 6) && bucket.rx >= 0 && bucket.tx >= 0) add(bucket)
+                if (bucket.epochDay >= firstDay) add(bucket)
             }
         }.sortedBy { it.epochDay }
     }
@@ -65,7 +64,14 @@ object DailyTrafficStore {
             )
         }
         val json = JSONObject().put("version", VERSION).put("days", days)
-        AtomicSnapshot.write(cacheFile(context), json.toString())
+        val target = cacheFile(context)
+        val tmp = File(target.parentFile, "$FILE_NAME.tmp")
+        runCatching {
+            tmp.writeText(json.toString())
+            check(tmp.renameTo(target)) { "Couldn't write daily traffic" }
+        }
+        // A failed write only costs the week's tail: the counters keep running, the next
+        // flush tries again.
     }
 
     private fun cacheFile(context: Context): File = File(context.filesDir, FILE_NAME)
